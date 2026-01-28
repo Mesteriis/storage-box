@@ -1,0 +1,266 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Storage Box Generator - Parametric 3D Models</title>
+    
+    <!-- Bootstrap CSS -->
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    
+    <!-- Three.js for 3D preview -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/loaders/STLLoader.js"></script>
+    
+    <!-- Custom CSS -->
+    <link rel="stylesheet" href="/static/css/style.css">
+    
+    <style>
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 20px 0;
+        }
+        
+        .container {
+            max-width: 1400px;
+        }
+        
+        .card {
+            border-radius: 15px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.3);
+            margin-bottom: 20px;
+        }
+        
+        .card-header {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            font-weight: bold;
+            border-radius: 15px 15px 0 0 !important;
+        }
+        
+        #viewer-container {
+            width: 100%;
+            height: 500px;
+            background: #1a1a2e;
+            border-radius: 10px;
+            position: relative;
+            overflow: hidden;
+        }
+        
+        .btn-primary {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            border: none;
+        }
+        
+        .btn-primary:hover {
+            background: linear-gradient(135deg, #764ba2 0%, #667eea 100%);
+        }
+        
+        .preset-btn {
+            margin: 5px;
+            border-radius: 20px;
+        }
+        
+        .dimension-display {
+            background: #f8f9fa;
+            padding: 15px;
+            border-radius: 10px;
+            margin-top: 10px;
+        }
+        
+        .warning-box {
+            background: #fff3cd;
+            border-left: 4px solid #ffc107;
+            padding: 10px;
+            margin-top: 10px;
+            border-radius: 5px;
+        }
+        
+        .loading-overlay {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0,0,0,0.7);
+            display: none;
+            align-items: center;
+            justify-content: center;
+            z-index: 1000;
+        }
+        
+        .loading-overlay.active {
+            display: flex;
+        }
+        
+        .spinner-border {
+            width: 3rem;
+            height: 3rem;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="row mb-4">
+            <div class="col-12 text-center">
+                <h1 class="text-white mb-3">
+                    <i class="bi bi-box"></i> Storage Box Generator
+                </h1>
+                <p class="text-white-50">Parametric 3D-printable storage boxes with V-profile rails</p>
+            </div>
+        </div>
+        
+        <div class="row">
+            <!-- Configuration Panel -->
+            <div class="col-md-5">
+                <div class="card">
+                    <div class="card-header">
+                        <h5 class="mb-0">Configuration</h5>
+                    </div>
+                    <div class="card-body">
+                        <!-- Presets -->
+                        <div class="mb-3">
+                            <label class="form-label fw-bold">Quick Presets</label>
+                            <div id="preset-buttons">
+                                <button class="btn btn-sm btn-outline-primary preset-btn" data-preset="smarthome_desk">Smart Home</button>
+                                <button class="btn btn-sm btn-outline-primary preset-btn" data-preset="workshop_tools">Workshop</button>
+                                <button class="btn btn-sm btn-outline-primary preset-btn" data-preset="medical_sealed">Medical</button>
+                                <button class="btn btn-sm btn-outline-primary preset-btn" data-preset="mvp">MVP</button>
+                            </div>
+                        </div>
+                        
+                        <hr>
+                        
+                        <!-- Dimensions -->
+                        <h6 class="text-primary">Dimensions (mm)</h6>
+                        <div class="row">
+                            <div class="col-4">
+                                <label class="form-label">Width</label>
+                                <input type="number" class="form-control" id="width" value="200" min="60" max="400" step="10">
+                            </div>
+                            <div class="col-4">
+                                <label class="form-label">Depth</label>
+                                <input type="number" class="form-control" id="depth" value="220" min="80" max="400" step="10">
+                            </div>
+                            <div class="col-4">
+                                <label class="form-label">Height</label>
+                                <input type="number" class="form-control" id="height" value="80" min="30" max="200" step="10">
+                            </div>
+                        </div>
+                        
+                        <!-- Design Style -->
+                        <div class="mt-3">
+                            <label class="form-label">Design Style</label>
+                            <select class="form-select" id="design">
+                                <option value="nordic">Nordic - Minimalist</option>
+                                <option value="techno">Techno - Futuristic</option>
+                                <option value="bauhaus">Bauhaus - Functional</option>
+                                <option value="organic">Organic - Natural</option>
+                                <option value="parametric">Parametric - Wave Pattern</option>
+                                <option value="stealth">Stealth - Sharp Edges</option>
+                                <option value="belovodie">Belovodye - Premium</option>
+                            </select>
+                        </div>
+                        
+                        <!-- Material -->
+                        <div class="mt-3">
+                            <label class="form-label">Material</label>
+                            <select class="form-select" id="material">
+                                <option value="hyper_pla">Hyper PLA (0.3mm tolerance)</option>
+                                <option value="petg">PETG (0.4mm tolerance)</option>
+                                <option value="abs">ABS (0.35mm tolerance)</option>
+                            </select>
+                        </div>
+                        
+                        <!-- Dividers -->
+                        <div class="mt-3">
+                            <label class="form-label">Dividers</label>
+                            <select class="form-select" id="dividers">
+                                <option value="auto">Auto Calculate</option>
+                                <option value="none">None</option>
+                                <option value="grid_2x2">2×2 Grid</option>
+                                <option value="grid_2x3">2×3 Grid</option>
+                                <option value="grid_3x3">3×3 Grid</option>
+                            </select>
+                        </div>
+                        
+                        <!-- Connection Type -->
+                        <div class="mt-3">
+                            <label class="form-label">Connection Type</label>
+                            <select class="form-select" id="connection">
+                                <option value="dovetail">Dovetail (Strong)</option>
+                                <option value="magnet">Magnet (6×3mm)</option>
+                                <option value="clip">Clip (Quick)</option>
+                                <option value="none">None</option>
+                            </select>
+                        </div>
+                        
+                        <!-- Print Mode -->
+                        <div class="mt-3">
+                            <label class="form-label">Print Mode</label>
+                            <select class="form-select" id="print_mode">
+                                <option value="draft">Draft (Fast)</option>
+                                <option value="normal" selected>Normal</option>
+                                <option value="premium">Premium (Detailed)</option>
+                            </select>
+                        </div>
+                        
+                        <!-- Actions -->
+                        <div class="mt-4 d-grid gap-2">
+                            <button id="calculate-btn" class="btn btn-primary">
+                                <i class="bi bi-calculator"></i> Calculate Dimensions
+                            </button>
+                            <button id="generate-btn" class="btn btn-success">
+                                <i class="bi bi-box-seam"></i> Generate 3D Model
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- 3D Viewer & Results -->
+            <div class="col-md-7">
+                <!-- 3D Viewer -->
+                <div class="card">
+                    <div class="card-header">
+                        <h5 class="mb-0">3D Preview</h5>
+                    </div>
+                    <div class="card-body p-0">
+                        <div id="viewer-container">
+                            <div class="loading-overlay" id="loading-overlay">
+                                <div class="text-center">
+                                    <div class="spinner-border text-light" role="status"></div>
+                                    <p class="text-white mt-2">Generating model...</p>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- Calculated Dimensions -->
+                <div class="card mt-3">
+                    <div class="card-header">
+                        <h5 class="mb-0">Calculated Dimensions</h5>
+                    </div>
+                    <div class="card-body">
+                        <div id="dimensions-display" class="dimension-display">
+                            <p class="text-muted">Click "Calculate Dimensions" to see results</p>
+                        </div>
+                        
+                        <div id="warnings-display"></div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Bootstrap JS -->
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    
+    <!-- Custom JS -->
+    <script src="/static/js/app.js"></script>
+</body>
+</html>

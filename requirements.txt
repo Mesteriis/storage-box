@@ -1,0 +1,12 @@
+# Storage Box Generator - Python Dependencies
+
+# Web Framework
+Flask==3.0.0
+Werkzeug==3.0.1
+
+# YAML Support
+PyYAML==6.0.1
+
+# For future enhancements
+# requests==2.31.0  # If needed for external APIs
+# pillow==10.1.0    # If needed for image processing

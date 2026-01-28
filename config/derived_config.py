@@ -136,8 +136,16 @@ class DerivedConfig:
     
     @property
     def drawer_width(self) -> float:
-        """Drawer outer width."""
-        return self.effective_inner_width - 2 * self.tolerances["slide"]
+        """Drawer outer width - fits between rails.
+        
+        Note: effective_inner_width already accounts for:
+        - wall thickness
+        - rail width  
+        - slide tolerances
+        
+        So drawer just uses this value directly.
+        """
+        return self.effective_inner_width
     
     @property
     def drawer_depth(self) -> float:
