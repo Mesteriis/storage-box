@@ -89,7 +89,9 @@ class DerivedConfig:
         
         # Reinforce based on side wall area
         area = self.config.width * self.config.height / 1000  # cm²
-        if area > 160:      # > 200×80
+        if area > 240:      # > 300×80 или 200×120
+            base = 3.6
+        elif area > 160:    # > 200×80
             base = 3.2
         elif area > 100:    # > 200×50
             base = 2.4
@@ -107,65 +109,155 @@ class DerivedConfig:
     
     @property
     def floor_thickness(self) -> float:
-        """Floor thickness (slightly thicker than walls)."""
-        return max(1.6, self.wall_thickness * 0.8)
+        """Floor thickness (same as or thicker than walls)."""
+        # Floor should not be thinner than walls for structural integrity
+        return max(2.0, self.wall_thickness)
     
     @property
-    def effective_inner_width(self) -> float:
-        """Real internal width after rails and tolerances."""
-        return (
-            self.config.width
-            - 2 * self.wall_thickness
-            - 2 * self.RAIL_WIDTH
-            - 2 * self.tolerances["slide"]
-        )
+    def shell_inner_width(self) -> float:
+        """Shell internal cavity width."""
+        return self.config.width - 2 * self.wall_thickness
     
     @property
-    def effective_inner_depth(self) -> float:
-        """Real internal depth."""
+    def shell_inner_depth(self) -> float:
+        """Shell internal cavity depth."""
         return self.config.depth - 2 * self.wall_thickness
     
     @property
+    def shell_inner_height(self) -> float:
+        """Shell internal cavity height."""
+        return self.config.height - self.floor_thickness
+    
+    @property
+    def rail_height_from_floor(self) -> float:
+        """Height where rails sit (from bottom of shell)."""
+        return self.floor_thickness + 15.0  # 15mm above floor
+    
+    @property
+    def space_between_rails(self) -> float:
+        """Horizontal space between left and right rails."""
+        return self.shell_inner_width - 2 * self.RAIL_WIDTH
+    
+    @property
+    def effective_inner_width(self) -> float:
+        """DEPRECATED: Use drawer_width instead.
+        
+        Real internal width after rails and tolerances.
+        """
+        return self.space_between_rails - 2 * self.tolerances["slide"]
+    
+    @property
+    def effective_inner_depth(self) -> float:
+        """DEPRECATED: Use shell_inner_depth instead.
+        
+        Real internal depth.
+        """
+        return self.shell_inner_depth
+    
+    @property
     def effective_inner_height(self) -> float:
-        """Real internal height (drawer height)."""
+        """DEPRECATED: Use shell_inner_height instead.
+        
+        Real internal height.
+        """
+        return self.shell_inner_height
+    
+    @property
+    def drawer_body_width(self) -> float:
+        """Drawer body width BEFORE V-grooves are cut.
+        
+        This is the physical outer width of the drawer body.
+        After V-grooves are cut into the sides, the effective
+        width becomes drawer_width_final.
+        """
+        # V-grooves cut approximately 2mm deep into each side
+        v_groove_depth = 2.0
         return (
-            self.config.height
-            - self.floor_thickness  # Shell floor
-            - 2.0                   # Top clearance
+            self.space_between_rails
+            - 2 * self.tolerances["slide"]
+            + 2 * v_groove_depth  # Add back what will be removed
         )
     
     @property
     def drawer_width(self) -> float:
-        """Drawer outer width - fits between rails.
+        """Drawer width AFTER V-grooves (final sliding width).
         
-        Note: effective_inner_width already accounts for:
-        - wall thickness
-        - rail width  
-        - slide tolerances
-        
-        So drawer just uses this value directly.
+        This is what actually slides between the rails.
         """
-        return self.effective_inner_width
+        return self.space_between_rails - 2 * self.tolerances["slide"]
     
     @property
     def drawer_depth(self) -> float:
         """Drawer outer depth."""
-        return self.effective_inner_depth - 10.0  # Front clearance
+        back_clearance = 5.0  # Space at back for air/drainage
+        front_clearance = self.front_panel_thickness  # Space for front panel
+        return (
+            self.shell_inner_depth
+            - back_clearance
+            - front_clearance
+        )
     
     @property
     def drawer_height(self) -> float:
-        """Drawer outer height."""
-        return self.effective_inner_height - self.tolerances["slide"]
+        """Drawer outer height.
+        
+        Drawer sits ON RAILS, not on floor!
+        So height calculation starts from rail_height.
+        """
+        top_clearance = 5.0  # Clearance to shell top
+        return (
+            self.config.height
+            - self.rail_height_from_floor  # Start at rail level
+            - top_clearance
+            - self.tolerances["slide"]
+        )
+    
+    @property
+    def drawer_wall_thickness(self) -> float:
+        """Drawer wall thickness (thinner than shell walls)."""
+        return self.wall_thickness * 0.75
+    
+    @property
+    def drawer_floor_thickness(self) -> float:
+        """Drawer floor thickness."""
+        return max(1.6, self.wall_thickness * 0.8)
+    
+    @property
+    def drawer_inner_width(self) -> float:
+        """Drawer internal width for content."""
+        return self.drawer_width - 2 * self.drawer_wall_thickness
     
     @property
     def drawer_inner_depth(self) -> float:
-        """Drawer internal depth for content."""
-        return self.drawer_height - self.floor_thickness - 2.0
+        """Drawer internal DEPTH for content (Y-axis)."""
+        return self.drawer_depth - 2 * self.drawer_wall_thickness
+    
+    @property
+    def drawer_inner_height(self) -> float:
+        """Drawer internal HEIGHT for content (Z-axis)."""
+        return self.drawer_height - self.drawer_floor_thickness
     
     @property
     def front_panel_thickness(self) -> float:
         """Front panel thickness."""
         return max(2.0, self.wall_thickness)
+    
+    @property
+    def front_opening_width(self) -> float:
+        """Width of front opening in shell (П-shape)."""
+        return self.shell_inner_width  # Full width between walls
+    
+    @property
+    def front_opening_height(self) -> float:
+        """Height of front opening in shell."""
+        # Leave small lip at top for structural integrity
+        top_lip = 5.0
+        return self.shell_inner_height - top_lip
+    
+    @property
+    def front_opening_depth(self) -> float:
+        """Depth of front opening cut (to punch through wall)."""
+        return self.wall_thickness * 2  # Cut through front wall completely
     
     @property
     def divider_count(self) -> Tuple[int, int]:
@@ -317,15 +409,26 @@ class DerivedConfig:
         return f"""
 Storage Box Configuration Summary
 =================================
-External: {self.config.width} × {self.config.depth} × {self.config.height} mm
-Internal: {self.effective_inner_width:.1f} × {self.effective_inner_depth:.1f} × {self.effective_inner_height:.1f} mm
-Drawer: {self.drawer_width:.1f} × {self.drawer_depth:.1f} × {self.drawer_height:.1f} mm
+Shell (external): {self.config.width} × {self.config.depth} × {self.config.height} mm
+Shell (internal): {self.shell_inner_width:.1f} × {self.shell_inner_depth:.1f} × {self.shell_inner_height:.1f} mm
+Front opening: {self.front_opening_width:.1f} × {self.front_opening_height:.1f} mm
+
+Rail height: {self.rail_height_from_floor:.1f} mm from floor
+Space between rails: {self.space_between_rails:.1f} mm
+
+Drawer body: {self.drawer_body_width:.1f} × {self.drawer_depth:.1f} × {self.drawer_height:.1f} mm
+Drawer (after grooves): {self.drawer_width:.1f} × {self.drawer_depth:.1f} × {self.drawer_height:.1f} mm
+Drawer (internal): {self.drawer_inner_width:.1f} × {self.drawer_inner_depth:.1f} × {self.drawer_inner_height:.1f} mm
 
 Wall thickness: {self.wall_thickness} mm
+Floor thickness: {self.floor_thickness} mm
+Drawer wall: {self.drawer_wall_thickness:.2f} mm
+Drawer floor: {self.drawer_floor_thickness:.2f} mm
+
 Tolerance (slide): {self.tolerances['slide']} mm
 Tolerance (snap): {self.tolerances['snap']} mm
 
-Dividers: {self.divider_count[0]}×{self.divider_count[1]}
+Dividers: {self.divider_count[0]+1}×{self.divider_count[1]+1} grid
 Connection: {self.connection_auto.value}
 
 Features enabled:
